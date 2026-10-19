@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>21 點 Blackjack</title>
+<style>
+:root{--felt:#0f5132;--felt2:#0b3d26;--gold:#e8c35a;--text:#f4f1e8;--muted:#b9c7bd;--red:#d33;--panel:rgba(0,0,0,.28)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;color:var(--text);background:radial-gradient(ellipse at center,#1a7a4c 0%,var(--felt) 45%,var(--felt2) 100%);background-attachment:fixed}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:rgba(0,0,0,.3);flex-wrap:wrap;gap:8px}
+h1{margin:0;font-size:22px;letter-spacing:2px}
+h1 span{color:var(--gold)}
+.bank{font-size:18px}.bank b{color:var(--gold);font-size:24px;transition:color .3s}
+.bank b.up{color:#5ee08a}.bank b.down{color:#ff7b7b}
+main{max-width:1120px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1fr 280px;gap:16px}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+.table{background:var(--panel);border:2px solid rgba(232,195,90,.35);border-radius:24px;padding:20px;min-height:540px;display:flex;flex-direction:column;gap:16px}
+.zone h2{margin:0 0 8px;font-size:15px;color:var(--muted);font-weight:normal}
+.val{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:12px;background:rgba(0,0,0,.45);color:var(--text);font-weight:bold;font-size:14px}
+.cards{display:flex;min-height:108px;flex-wrap:nowrap}
+.card{width:72px;height:102px;border-radius:8px;background:#fff;color:#111;position:relative;box-shadow:0 3px 8px rgba(0,0,0,.45);margin-right:-24px;font-weight:bold;user-select:none;flex-shrink:0}
+.cards .card:last-child{margin-right:0}
+.card .tl,.card .br{position:absolute;font-size:15px;line-height:1.05;text-align:center}
+.card .tl{top:5px;left:7px}.card .br{bottom:5px;right:7px;transform:rotate(180deg)}
+.card .mid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:34px}
+.card.red{color:var(--red)}
+.card.back{background:repeating-linear-gradient(45deg,#8b1d2c 0 6px,#a8283a 6px 12px);border:4px solid #fff}
+.deal{animation:dealIn .35s ease-out}
+@keyframes dealIn{from{opacity:0;transform:translate(160px,-160px) rotate(25deg) scale(.8)}to{opacity:1;transform:none}}
+.flip{animation:flip .45s ease}
+@keyframes flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
+.hands{display:flex;gap:16px;flex-wrap:wrap}
+.hand{padding:10px 12px;border-radius:14px;border:2px solid transparent;background:rgba(0,0,0,.15);min-width:180px;transition:.2s}
+.hand.active{border-color:var(--gold);box-shadow:0 0 14px rgba(232,195,90,.45)}
+.hand .meta{font-size:13px;color:var(--muted);margin-bottom:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.badge{padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;color:#fff}
+.badge.win,.badge.bj{background:#2ea043}.badge.lose,.badge.bust{background:#b62324}.badge.push{background:#6e7681}
+.msg{text-align:center;font-size:20px;font-weight:bold;min-height:30px;color:var(--gold)}
+.hint{text-align:center;color:var(--muted);min-height:20px;font-size:14px}
+.hint b{color:#fff;background:rgba(232,195,90,.25);padding:1px 8px;border-radius:8px}
+button{font:inherit;cursor:pointer;border:none;border-radius:10px;padding:10px 16px;font-weight:bold;background:#e9e4d4;color:#222;transition:transform .1s,opacity .2s}
+button:hover:not(:disabled){transform:translateY(-2px)}
+button:disabled{opacity:.35;cursor:not-allowed}
+.primary{background:var(--gold);color:#222}
+.ghost{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.4)}
+.small{padding:6px 10px;font-size:13px}
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+kbd{font-size:11px;opacity:.55;margin-left:4px;font-family:inherit}
+.betbar{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:auto;padding-top:14px;border-top:1px dashed rgba(255,255,255,.2)}
+.betinfo{font-size:16px}.betinfo b{color:var(--gold);font-size:20px}
+.chips{display:flex;gap:8px}
+.chip{width:54px;height:54px;border-radius:50%;padding:0;color:#fff;border:4px dashed rgba(255,255,255,.75);box-shadow:0 3px 6px rgba(0,0,0,.4)}
+.c10{background:#3b82f6}.c50{background:#dc2626}.c100{background:#1f1f1f}.c500{background:#7c3aed}
+aside{display:flex;flex-direction:column;gap:12px}
+.panel{background:var(--panel);border-radius:14px;padding:14px}
+.panel h3{margin:0 0 10px;font-size:15px;color:var(--gold)}
+.stats{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:14px;margin-bottom:10px}
+.stats span:nth-child(even){text-align:right;font-weight:bold}
+#hist{list-style:none;margin:0;padding:0;font-size:13px;max-height:230px;overflow:auto}
+#hist li{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.pos{color:#5ee08a}.neg{color:#ff7b7b}.zero{color:var(--muted)}
+details summary{cursor:pointer;color:var(--gold);font-weight:bold}
+details ul{padding-left:18px;font-size:13px;line-height:1.7;color:var(--muted);margin:8px 0 0}
+label{font-size:14px;cursor:pointer}
+#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);padding:8px 18px;border-radius:20px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9}
+#toast.show{opacity:1}
+.empty{color:var(--muted);font-size:14px;align-self:center}
+@media(max-width:500px){
+  .card{width:56px;height:80px;margin-right:-18px}.card .mid{font-size:26px}.card .tl,.card .br{font-size:12px}
+  .cards{min-height:84px}.table{padding:14px;min-height:auto}.chip{width:48px;height:48px}
+  main{padding:10px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>♠ 21 點 <span>Blackjack</span></h1>
+  <div class="bank">籌碼：<b id="bank">1000</b></div>
+</header>
+
+<main>
+  <section class="table">
+    <div class="zone">
+      <h2>莊家 <span class="val" id="dVal">-</span></h2>
+      <div class="cards" id="dealer"></div>
+    </div>
+
+    <div class="msg" id="msg">選擇籌碼下注，然後按「發牌」開始</div>
+
+    <div class="zone">
+      <h2>玩家</h2>
+      <div class="hands" id="hands"></div>
+    </div>
+
+    <div class="hint" id="hint"></div>
+
+    <div class="actions">
+      <button id="bHit">要牌<kbd>H</kbd></button>
+      <button id="bStand">停牌<kbd>S</kbd></button>
+      <button id="bDouble">加倍<kbd>D</kbd></button>
+      <button id="bSplit">分牌<kbd>P</kbd></button>
+    </div>
+
+    <div class="betbar">
+      <div class="betinfo">本局下注：<b id="bet">0</b></div>
+      <div class="chips">
+        <button class="chip c10" data-v="10">10</button>
+        <button class="chip c50" data-v="50">50</button>
+        <button class="chip c100" data-v="100">100</button>
+        <button class="chip c500" data-v="500">500</button>
+      </div>
+      <button id="bClear" class="ghost">清除</button>
+      <button id="bAll" class="ghost">All in</button>
+      <button id="bDeal" class="primary">發牌<kbd>Enter</kbd></button>
+      <button id="bBroke" class="primary" hidden>破產了！重新領取 1000 籌碼</button>
+    </div>
+  </section>
+
+  <aside>
+    <div class="panel">
+      <h3>📊 戰績統計</h3>
+      <div class="stats" id="stats"></div>
+      <button id="bResetAll" class="ghost small">重置所有紀錄</button>
+    </div>
+    <div class="panel">
+      <h3>💡 策略提示</h3>
+      <label><input type="checkbox" id="hintToggle" checked> 顯示「基本策略」建議動作</label>
+    </div>
+    <div class="panel">
+      <h3>📜 最近戰況</h3>
+      <ul id="hist"></ul>
+    </div>
+    <details class="panel">
+      <summary>遊戲規則</summary>
+      <ul>
+        <li>目標：手牌點數比莊家更接近 21，但不能超過（超過即「爆牌」）。</li>
+        <li>2～10 依牌面計算，J / Q / K 算 10，A 可算 1 或 11。</li>
+        <li>前兩張就是 21 點稱為 Blackjack，賠率 3:2。</li>
+        <li>一般勝利賠 1:1，平手退回賭注。</li>
+        <li>莊家 17 點以上（含軟 17）一律停牌。</li>
+        <li>加倍：只有前兩張時可用，賭注加倍、只再補一張牌。</li>
+        <li>分牌：前兩張點數相同可分成兩手（限一次）；分 A 時各只補一張。</li>
+        <li>使用 6 副牌，剩下不到 25% 時自動重新洗牌。</li>
+        <li>快捷鍵：H 要牌、S 停牌、D 加倍、P 分牌、Enter 發牌。</li>
+      </ul>
+    </details>
+  </aside>
+</main>
+<div id="toast"></div>
+
+<script>
+const SUITS = ['♠','♥','♦','♣'];
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const DECKS = 6, START_BANK = 1000, MIN_BET = 10;
+const RESULT_TEXT = {win:'勝', lose:'負', bust:'爆牌', push:'平手', bj:'Blackjack!'};
+
+let uid = 0;
+const shown = new Set();
+const S = {
+  shoe: [], cut: 0, bank: START_BANK, bet: 0, lastBet: 0,
+  hands: [], active: 0, dealer: [], holeHidden: true,
+  phase: 'betting', busy: false,
+  stats: {rounds:0, win:0, lose:0, push:0, bj:0, maxBank:START_BANK},
+  history: []
+};
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- 存檔 ---------- */
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem('bj21') || 'null');
+    if(d){ S.bank = d.bank; S.stats = d.stats; S.history = d.history || []; S.lastBet = d.lastBet || 0; }
+  }catch(e){}
+}
+function save(){
+  try{ localStorage.setItem('bj21', JSON.stringify({bank:S.bank, stats:S.stats, history:S.history, lastBet:S.lastBet})); }catch(e){}
+}
+
+/* ---------- 牌組 ---------- */
+function buildShoe(){
+  const s = [];
+  for(let d=0; d<DECKS; d++) for(const su of SUITS) for(const r of RANKS) s.push({r, su});
+  for(let i=s.length-1; i>0; i--){ const j = Math.floor(Math.random()*(i+1)); [s[i], s[j]] = [s[j], s[i]]; }
+  S.shoe = s; S.cut = Math.floor(s.length * 0.25);
+  toast('🔀 重新洗牌（' + DECKS + ' 副牌）');
+}
+function draw(){ if(!S.shoe.length) buildShoe(); return {...S.shoe.pop(), id: ++uid}; }
+function cv(c){ return c.r === 'A' ? 11 : ['J','Q','K'].includes(c.r) ? 10 : +c.r; }
+function value(cards){
+  let t = 0, a = 0;
+  for(const c of cards){ t += cv(c); if(c.r === 'A') a++; }
+  while(t > 21 && a){ t -= 10; a--; }
+  return {t, soft: a > 0};
+}
+// final = true：這手已經結束，只顯示最終點數；否則有 A 時同時顯示「低 或 高」
+function fmt(cards, final = false){
+  const {t, soft} = value(cards);
+  if(t > 21) return t + ' 爆';
+  return soft && t < 21 && !final ? (t-10) + ' 或 ' + t : String(t);
+}
+
+/* ---------- 下注 ---------- */
+function clearTable(){
+  S.hands = []; S.dealer = []; S.phase = 'betting'; shown.clear();
+  msg('選擇籌碼下注，然後按「發牌」開始');
+}
+function addBet(v){
+  if(S.busy || !(S.phase === 'betting' || S.phase === 'over')) return;
+  if(S.phase === 'over') clearTable();
+  if(S.bet + v > S.bank){ toast('籌碼不足'); return; }
+  S.bet += v; render();
+}
+
+/* ---------- 回合流程 ---------- */
+async function deal(){
+  if(S.busy || !(S.phase === 'betting' || S.phase === 'over')) return;
+  if(S.bet === 0 && S.lastBet && S.lastBet <= S.bank) S.bet = S.lastBet;
+  if(S.bet < MIN_BET){ msg('請先下注（最低 ' + MIN_BET + '）'); render(); return; }
+  if(S.bet > S.bank){ msg('籌碼不足'); return; }
+  if(!S.shoe.length || S.shoe.length < S.cut) buildShoe();
+
+  S.bank -= S.bet; S.lastBet = S.bet;
+  S.hands = [{cards:[], bet:S.bet, done:false, split:false, doubled:false, result:null}];
+  S.bet = 0; S.active = 0; S.dealer = []; S.holeHidden = true; shown.clear();
+  S.phase = 'dealing'; S.busy = true; msg(''); render();
+
+  for(const who of ['p','d','p','d']){
+    if(who === 'p') S.hands[0].cards.push(draw()); else S.dealer.push(draw());
+    render(); await sleep(320);
+  }
+  S.busy = false;
+
+  const pBJ = value(S.hands[0].cards).t === 21, dBJ = value(S.dealer).t === 21;
+  if(pBJ || dBJ){
+    S.hands[0].done = true; S.holeHidden = false; render();
+    await sleep(500); settle(); return;
+  }
+  S.phase = 'player'; render();
+}
+
+function cur(){ return S.hands[S.active]; }
+function canAct(){ return S.phase === 'player' && !S.busy; }
+function canDouble(){ const h = cur(); return canAct() && h && h.cards.length === 2 && S.bank >= h.bet; }
+function canSplit(){
+  const h = cur();
+  return canAct() && S.hands.length === 1 && h.cards.length === 2 && cv(h.cards[0]) === cv(h.cards[1]) && S.bank >= h.bet;
+}
+
+async function hit(){
+  if(!canAct()) return;
+  const h = cur(); h.cards.push(draw()); render();
+  if(value(h.cards).t >= 21){ S.busy = true; render(); await sleep(400); S.busy = false; nextHand(); }
+}
+function stand(){ if(canAct()) nextHand(); }
+async function doubleDown(){
+  if(!canDouble()) return;
+  const h = cur(); S.bank -= h.bet; h.bet *= 2; h.doubled = true;
+  h.cards.push(draw()); S.busy = true; render();
+  await sleep(500); S.busy = false; nextHand();
+}
+async function split(){
+  if(!canSplit()) return;
+  const h = cur(); S.bank -= h.bet;
+  const h2 = {cards:[h.cards.pop()], bet:h.bet, done:false, split:true, doubled:false, result:null};
+  h.split = true; S.hands.push(h2);
+  const aces = h.cards[0].r === 'A';
+  S.busy = true; render(); await sleep(250);
+  h.cards.push(draw()); render(); await sleep(320);
+  h2.cards.push(draw()); render(); await sleep(320);
+  S.busy = false;
+  if(aces){ h.done = true; h2.done = true; finishPlayer(); return; }
+  if(value(h.cards).t === 21) nextHand(); else render();
+}
+function nextHand(){
+  cur().done = true;
+  const i = S.hands.findIndex(h => !h.done);
+  if(i >= 0){
+    S.active = i; render();
+    if(value(cur().cards).t === 21) nextHand();
+  } else finishPlayer();
+}
+
+async function finishPlayer(){
+  S.phase = 'dealer'; S.busy = true; S.holeHidden = false; render();
+  await sleep(650);
+  const anyLive = S.hands.some(h => value(h.cards).t <= 21);
+  if(anyLive){
+    while(value(S.dealer).t < 17){ S.dealer.push(draw()); render(); await sleep(600); }
+  }
+  S.busy = false; settle();
+}
+
+function settle(){
+  const d = value(S.dealer).t, dBJ = S.dealer.length === 2 && d === 21;
+  let net = 0;
+  for(const h of S.hands){
+    const p = value(h.cards).t, pBJ = !h.split && h.cards.length === 2 && p === 21;
+    let pay = 0, res;
+    if(pBJ && !dBJ){ pay = h.bet * 2.5; res = 'bj'; }
+    else if(pBJ && dBJ){ pay = h.bet; res = 'push'; }
+    else if(dBJ){ res = 'lose'; }
+    else if(p > 21){ res = 'bust'; }
+    else if(d > 21 || p > d){ pay = h.bet * 2; res = 'win'; }
+    else if(p === d){ pay = h.bet; res = 'push'; }
+    else res = 'lose';
+    h.result = res; S.bank += pay; net += pay - h.bet;
+    if(res === 'win' || res === 'bj') S.stats.win++;
+    else if(res === 'push') S.stats.push++;
+    else S.stats.lose++;
+    if(res === 'bj') S.stats.bj++;
+  }
+  S.stats.rounds++;
+  S.stats.maxBank = Math.max(S.stats.maxBank, S.bank);
+
+  const desc = S.hands.map(h => value(h.cards).t).join(' / ') + ' vs 莊 ' + (dBJ ? 'BJ' : d);
+  S.history.unshift({n:S.stats.rounds, desc, net});
+  S.history = S.history.slice(0, 15);
+
+  let text;
+  if(S.hands.length === 1){
+    const r = S.hands[0].result;
+    text = r === 'bj' ? '🃏 Blackjack！' : r === 'win' ? (d > 21 ? '🎉 莊家爆牌，你贏了！' : '🎉 你贏了！')
+         : r === 'push' ? '🤝 平手' : r === 'bust' ? '💥 爆牌了' : dBJ ? '😵 莊家 Blackjack' : '😢 莊家贏了';
+  } else text = net > 0 ? '🎉 分牌總結：贏了' : net < 0 ? '😢 分牌總結：輸了' : '🤝 分牌總結：打平';
+  text += net > 0 ? '  +' + net : net < 0 ? '  ' + net : '';
+  msg(text);
+
+  S.phase = 'over';
+  flashBank(net);
+  save(); render();
+}
+
+/* ---------- 基本策略提示 ---------- */
+function suggest(){
+  const h = cur();
+  if(!h || S.phase !== 'player') return '';
+  const up = cv(S.dealer[0]);
+  const {t, soft} = value(h.cards);
+  const canD = h.cards.length === 2 && S.bank >= h.bet;
+  const D = alt => canD ? '加倍' : alt;
+  if(canSplit()){
+    const r = cv(h.cards[0]);
+    if(r === 11 || r === 8) return '分牌';
+    if(r === 9 && ![7,10,11].includes(up)) return '分牌';
+    if((r === 7 || r === 2 || r === 3) && up <= 7) return '分牌';
+    if(r === 6 && up <= 6) return '分牌';
+    if(r === 4 && (up === 5 || up === 6)) return '分牌';
+  }
+  if(soft){
+    if(t >= 19) return '停牌';
+    if(t === 18){ if(up >= 3 && up <= 6) return D('停牌'); return up <= 8 ? '停牌' : '要牌'; }
+    if(t === 17) return up >= 3 && up <= 6 ? D('要牌') : '要牌';
+    if(t >= 15) return up >= 4 && up <= 6 ? D('要牌') : '要牌';
+    return up >= 5 && up <= 6 ? D('要牌') : '要牌';
+  }
+  if(t >= 17) return '停牌';
+  if(t >= 13) return up <= 6 ? '停牌' : '要牌';
+  if(t === 12) return up >= 4 && up <= 6 ? '停牌' : '要牌';
+  if(t === 11) return D('要牌');
+  if(t === 10) return up <= 9 ? D('要牌') : '要牌';
+  if(t === 9) return up >= 3 && up <= 6 ? D('要牌') : '要牌';
+  return '要牌';
+}
+
+/* ---------- 畫面 ---------- */
+function msg(t){ $('msg').textContent = t; }
+let toastTimer;
+function toast(t){
+  const el = $('toast'); el.textContent = t; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1600);
+}
+function flashBank(net){
+  const b = $('bank'); b.classList.remove('up','down');
+  if(net) b.classList.add(net > 0 ? 'up' : 'down');
+  setTimeout(() => b.classList.remove('up','down'), 1200);
+}
+function cardEl(c, hidden, extra){
+  const el = document.createElement('div');
+  if(hidden) el.className = 'card back';
+  else{
+    const red = c.su === '♥' || c.su === '♦';
+    el.className = 'card' + (red ? ' red' : '');
+    el.innerHTML = `<span class="tl">${c.r}<br>${c.su}</span><span class="mid">${c.su}</span><span class="br">${c.r}<br>${c.su}</span>`;
+  }
+  if(!shown.has(c.id)){ el.classList.add('deal'); shown.add(c.id); }
+  else if(extra) el.classList.add(extra);
+  return el;
+}
+
+function render(){
+  $('bank').textContent = S.bank.toLocaleString();
+  $('bet').textContent = S.bet.toLocaleString();
+
+  // 莊家
+  const dz = $('dealer'); dz.innerHTML = '';
+  S.dealer.forEach((c, i) => {
+    let extra = null;
+    if(i === 1 && !S.holeHidden && !shown.has('f' + c.id)){ extra = 'flip'; shown.add('f' + c.id); }
+    dz.appendChild(cardEl(c, i === 1 && S.holeHidden, extra));
+  });
+  if(!S.dealer.length) dz.innerHTML = '<span class="empty">等待發牌…</span>';
+  $('dVal').textContent = !S.dealer.length ? '-' : S.holeHidden ? fmt([S.dealer[0]]) + ' + ?' : fmt(S.dealer, true);
+
+  // 玩家
+  const hz = $('hands'); hz.innerHTML = '';
+  S.hands.forEach((h, i) => {
+    const box = document.createElement('div');
+    box.className = 'hand' + (S.phase === 'player' && i === S.active ? ' active' : '');
+    const label = S.hands.length > 1 ? `第 ${i+1} 手` : '你的手牌';
+    box.innerHTML = `<div class="meta">${label}・注 ${h.bet}${h.doubled ? '（加倍）' : ''}
+      <span class="val">${fmt(h.cards, h.done || S.phase === 'over')}</span>
+      ${h.result ? `<span class="badge ${h.result}">${RESULT_TEXT[h.result]}</span>` : ''}</div>`;
+    const cz = document.createElement('div'); cz.className = 'cards';
+    h.cards.forEach(c => cz.appendChild(cardEl(c, false)));
+    box.appendChild(cz); hz.appendChild(box);
+  });
+  if(!S.hands.length) hz.innerHTML = '<span class="empty">下注後按「發牌」開始這一局</span>';
+
+  // 按鈕
+  const betting = (S.phase === 'betting' || S.phase === 'over') && !S.busy;
+  $('bHit').disabled = !canAct();
+  $('bStand').disabled = !canAct();
+  $('bDouble').disabled = !canDouble();
+  $('bSplit').disabled = !canSplit();
+  document.querySelectorAll('.chip').forEach(b => b.disabled = !betting || S.bet + (+b.dataset.v) > S.bank);
+  $('bClear').disabled = !betting || !S.bet;
+  $('bAll').disabled = !betting || S.bank < MIN_BET;
+  const reuse = S.phase === 'over' && S.bet === 0 && S.lastBet && S.lastBet <= S.bank;
+  $('bDeal').innerHTML = (reuse ? `再來一局（${S.lastBet}）` : '發牌') + '<kbd>Enter</kbd>';
+  $('bDeal').disabled = !betting || (S.bet < MIN_BET && !reuse);
+  const broke = betting && S.bank + S.bet < MIN_BET;
+  $('bBroke').hidden = !broke; $('bDeal').hidden = broke;
+
+  // 提示
+  const sg = $('hintToggle').checked ? suggest() : '';
+  $('hint').innerHTML = sg ? `建議動作：<b>${sg}</b>（莊家明牌 ${S.dealer[0].r}）` : '';
+
+  // 統計
+  const st = S.stats, decided = st.win + st.lose;
+  const rows = [
+    ['局數', st.rounds], ['勝', st.win], ['負', st.lose], ['平手', st.push],
+    ['Blackjack', st.bj], ['勝率', decided ? Math.round(st.win / decided * 100) + '%' : '-'],
+    ['最高籌碼', st.maxBank.toLocaleString()], ['牌靴剩餘', S.shoe.length + ' 張']
+  ];
+  $('stats').innerHTML = rows.map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
+
+  // 歷史
+  $('hist').innerHTML = S.history.length
+    ? S.history.map(h => `<li><span>#${h.n} ${h.desc}</span><span class="${h.net > 0 ? 'pos' : h.net < 0 ? 'neg' : 'zero'}">${h.net > 0 ? '+' : ''}${h.net}</span></li>`).join('')
+    : '<li class="zero">還沒有紀錄</li>';
+}
+
+/* ---------- 事件 ---------- */
+document.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => addBet(+b.dataset.v)));
+$('bClear').onclick = () => { if(S.phase === 'over') clearTable(); S.bet = 0; render(); };
+$('bAll').onclick = () => { if(S.busy) return; if(S.phase === 'over') clearTable(); S.bet = S.bank; render(); };
+$('bDeal').onclick = deal;
+$('bHit').onclick = hit;
+$('bStand').onclick = stand;
+$('bDouble').onclick = doubleDown;
+$('bSplit').onclick = split;
+$('hintToggle').onchange = render;
+$('bBroke').onclick = () => { S.bank = START_BANK; S.bet = 0; clearTable(); save(); toast('💰 已重新領取 1000 籌碼'); render(); };
+$('bResetAll').onclick = () => {
+  if(S.busy || S.phase === 'player' || S.phase === 'dealer') { toast('請先結束這一局'); return; }
+  if(!confirm('確定要重置籌碼與所有戰績嗎？')) return;
+  S.bank = START_BANK; S.bet = 0; S.lastBet = 0; S.history = [];
+  S.stats = {rounds:0, win:0, lose:0, push:0, bj:0, maxBank:START_BANK};
+  clearTable(); save(); render();
+};
+document.addEventListener('keydown', e => {
+  if(e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if(k === 'h') hit();
+  else if(k === 's') stand();
+  else if(k === 'd') doubleDown();
+  else if(k === 'p') split();
+  else if(k === 'enter' || k === ' '){ e.preventDefault(); deal(); }
+});
+
+load();
+buildShoe();
+render();
+</script>
+</body>
+</html>
